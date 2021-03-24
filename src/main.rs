@@ -1,6 +1,7 @@
 use std::io;
 use std::io::BufRead;
-use trust_dns_resolver::config::*;
+use std::thread;
+use std::time::Duration;
 use trust_dns_resolver::Resolver;
 
 fn main() {
@@ -14,15 +15,24 @@ fn host_to_ip() {
         domains.push(line.unwrap());
     }
 
-    let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
-    for dom in &domains {
-        let domain = String::from(dom);
-        if resolver
-            .lookup_ip(domain)
-            .map(|look| look.iter().next().map(|addr| println!("{}|{}", dom, addr)))
-            .is_err()
-        {
-            eprintln!("{}|Nothing found", dom);
+    let resolver = Resolver::from_system_conf().unwrap();
+    let handle = thread::spawn(move || {
+        for dom in &domains {
+            if !dom.is_empty() {
+                let mut domain = String::from(dom);
+                domain.push('.');
+                if resolver
+                    .lookup_ip(domain)
+                    .map(|lookup_ip| lookup_ip.iter().next().map(|ip| println!("{}|{}", dom, ip)))
+                    .is_err()
+                {
+                    eprintln!("{}|Nothing found", dom);
+                }
+
+                thread::sleep(Duration::from_millis(8));
+            }
         }
-    }
+    });
+
+    handle.join().unwrap();
 }
