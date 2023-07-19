@@ -7,7 +7,7 @@ version = "0.2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.66"
-clap = { version = "4.0.29", features = ["derive"] }
-tokio = {version = "1.23.0", features = ["rt-multi-thread", "macros"]}
+anyhow = "1.0.72"
+clap = { version = "4.3.17", features = ["derive"] }
+tokio = {version = "1.29.1", features = ["rt-multi-thread", "macros"]}
 trust-dns-resolver = {version = "0.22.0", features = ["dns-over-rustls"]}
