@@ -1,8 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
-use std::io::BufRead;
+use std::env::args;
+use std::io::{self, BufRead};
 use std::net::IpAddr;
-use std::{env::args, io};
+use tokio::runtime::Runtime;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::TokioAsyncResolver;
 
@@ -12,19 +13,17 @@ struct Host {
     ip: Option<IpAddr>,
 }
 
-/// DNS Resolver to get domain IPs
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {}
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let _args = Args::parse();
-    let resolve_result = host_to_ip().await?;
+    let resolve_result = Runtime::new()?.block_on(host_to_ip())?;
 
     for host in resolve_result {
         if let Some(ip) = host.ip {
-            println!("{},{:?}", host.domain, ip)
+            println!("{}, {:?}", host.domain, ip);
         }
     }
 
@@ -35,28 +34,13 @@ async fn host_to_ip() -> Result<Vec<Host>> {
     let input = io::stdin();
     let mut domains: Vec<String> = Vec::new();
     for line in input.lock().lines() {
-        domains.push(line.unwrap());
+        domains.push(line?);
     }
-    // Capturing all arguments.
-    let _all_args: Vec<String> = args().collect();
-    // Check for configuration in args.
-    // On Unix systems by this app use /etc/resolv.conf as resolver.
-    // let mut resolver = Resolver::from_system_conf().expect("Unable to parse /etc/resolve.conf");
-    // if all_args.contains(&"secure".to_string()) {
-    //     // Using cloudflare 1.1.1.1 DNS service if there were `secure` keyword in input args.
-    //     resolver =
-    //         Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
-    // }
 
-    // Construct a new Resolver with default configuration options
     let resolver = TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default())
         .expect("Unable to connect resolver");
 
-    // Lookup the IP addresses associated with a name.
-    // This returns a future that will lookup the IP addresses, it must be run in the Core to
-    //  to get the actual result.
-
-    let mut hosts: Vec<Host> = vec![];
+    let mut hosts: Vec<Host> = Vec::new();
     for dom in domains {
         let mut host = Host {
             domain: dom.to_string(),
@@ -67,7 +51,7 @@ async fn host_to_ip() -> Result<Vec<Host>> {
             domain.push('.');
 
             if let Ok(lookup_ip) = resolver.lookup_ip(domain.clone()).await {
-                host.ip = Some(lookup_ip.into_iter().next().unwrap());
+                host.ip = lookup_ip.into_iter().next();
             }
         }
         hosts.push(host);
